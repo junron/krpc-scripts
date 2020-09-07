@@ -5,15 +5,15 @@ import org.javatuples.Triplet
 import util.Events
 import util.Mechanics
 
-fun main() {
+suspend fun main() {
     val connection = Connection.newInstance(
         "Booster landing",
         "localhost",
         6666,
         6667
     )
-    val krpc = KRPC.newInstance(connection)
     val sc = SpaceCenter.newInstance(connection)
+    sc.save("krpc")
     val vessel = sc.activeVessel
     println("Vessel: ${vessel.name}")
     val ap = vessel.autoPilot
@@ -59,14 +59,14 @@ fun main() {
     control.sasMode = SpaceCenter.SASMode.STABILITY_ASSIST
     val suicideBurn = Mechanics.suicideBurn(vessel, vessel.flight(ref))
     println("Alt: ${suicideBurn.second}, Time: ${suicideBurn.first}")
-    Events.waitAltitude(suicideBurn.second + 1000, vessel, krpc, connection)
+    Events.waitAltitude(suicideBurn.second + 1000, vessel, connection)
     val suicideBurn2 = Mechanics.suicideBurn(vessel, vessel.flight(ref))
     println("Alt: ${suicideBurn2.second}, Time: ${suicideBurn2.first}")
-    Events.waitAltitude(suicideBurn2.second, vessel, krpc, connection)
+    Events.waitAltitude(suicideBurn2.second, vessel, connection)
     control.throttle = 1F
-    Events.waitVelocity(50.0, vessel, krpc, connection)
+    Events.waitVelocity(50.0, vessel, connection)
     control.throttle = 0F
-    Events.waitAltitude(600.0, vessel, krpc, connection)
+    Events.waitAltitude(600.0, vessel, connection)
     var target = 50.0
     while (true) {
         val flight = vessel.flight(ref)

@@ -5,38 +5,15 @@ import krpc.client.services.SpaceCenter
 import org.javatuples.Triplet
 import util.*
 
-suspend fun boosterManoeuvre(
-    booster: SpaceCenter.Vessel,
-    printer: TimedPrinter,
-    sc: SpaceCenter
-) {
-    with(booster) {
-        autoPilot.referenceFrame = orbitalReferenceFrame
-        autoPilot.engage()
-        autoPilot.targetDirection = Triplet(0.0, 0.0, -1.0)
-        this.control.throttle = 0.5F
-        printer.print("Booster burn")
-        delay(15000)
-        this.control.throttle = 0F
-        printer.print("Booster burn complete")
-        // Point retrograde
-        autoPilot.targetDirection = Triplet(0.0, -1.0, 0.0)
-        sc.warpTo(sc.ut + booster.orbit.timeToPeriapsis, 10000F,1000F)
-    }
-}
 
 suspend fun main() {
-//    val craft = "R1-Simple"
-    val craft = "R2-Cargo"
     val connection = Connection.newInstance(
-        "$craft Launch",
+        "R2-Heavy Launch",
         "localhost",
         6666,
         6667
     )
     val sc = SpaceCenter.newInstance(connection)
-    // Temporary save
-    sc.save("krpc")
     val printer = TimedPrinter(sc)
     val vessel = sc.activeVessel
     printer.print("Vessel: ${vessel.name}")
@@ -52,17 +29,30 @@ suspend fun main() {
     printer.print("Launch")
     val targetAp = 150_000
     val ref = vessel.orbit.body.referenceFrame
-    while (true) {
-        val flight = vessel.flight(ref)
-        val speed = flight.speed
-        if (speed > 650) {
-            break
-        }
-        if (flight.speed > 100) {
+    val speedStream =
+        connection.addStream<Double>(vessel.flight(ref), "getSpeed")
+    speedStream.addCallback { speed ->
+        if (speed in 100.0..550.0) {
             ap.targetPitchAndHeading((90F - speed / 10F).toFloat(), 90F)
         }
-        delay(1000)
+        if (speed > 600)
+            speedStream.remove()
     }
+    val fuelStream = connection.addStream<Float>(
+        vessel.resourcesInDecoupleStage(3, false),
+        "amount",
+        "LiquidFuel"
+    )
+    fuelStream.addCallback {
+        if (it < 1000) {
+            control.throttle = 0F
+            control.activateNextStage()
+            control.throttle = 1F
+            fuelStream.remove()
+        }
+    }
+    fuelStream.start()
+    speedStream.start()
     Events.waitApoapsis(45_000.0, vessel, connection)
     ap.referenceFrame = vessel.orbitalReferenceFrame
     ap.targetDirection = Triplet(0.0, 1.0, 0.0)
@@ -73,7 +63,7 @@ suspend fun main() {
     printer.print("MECO")
     delay(3000)
     control.activateNextStage()
-    val booster = sc.getVesselByName("$craft Probe")
+    val booster = sc.getVesselByName("R2-Heavy Probe")
         ?: return printer.print("No booster found")
 
     control.throttle = 0.4F

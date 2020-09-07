@@ -1,76 +1,71 @@
 package util
 
 import krpc.client.Connection
-import krpc.client.services.KRPC
 import krpc.client.services.SpaceCenter
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 object Events {
-    fun waitAltitude(
+    suspend fun waitAltitude(
         altitude: Double,
         vessel: SpaceCenter.Vessel,
-        krpc: KRPC,
         connection: Connection,
         climbing: Boolean = false
-    ) {
+    ) = suspendCoroutine<Unit> { cont ->
         val ref = vessel.orbit.body.referenceFrame
-        val meanAltitude =
-            connection.getCall(vessel.flight(ref), "getSurfaceAltitude")
-        val expression = if (climbing) {
-            KRPC.Expression.greaterThanOrEqual(
-                connection,
-                KRPC.Expression.call(connection, meanAltitude),
-                KRPC.Expression.constantDouble(connection, altitude)
-            )
-        } else {
-            KRPC.Expression.lessThanOrEqual(
-                connection,
-                KRPC.Expression.call(connection, meanAltitude),
-                KRPC.Expression.constantDouble(connection, altitude)
-            )
+        val stream = connection.addStream<Double>(
+            vessel.flight(ref),
+            "getSurfaceAltitude"
+        )
+        var tag = 0
+        tag = stream.addCallback {
+            if (climbing && it > altitude) {
+                cont.resume(Unit)
+                stream.removeCallback(tag)
+            } else if (!climbing && it < altitude) {
+                cont.resume(Unit)
+                stream.removeCallback(tag)
+            }
         }
-        val event = krpc.addEvent(expression)
-        synchronized(event.condition) {
-            event.waitFor()
-        }
+        stream.rate = 2F
+        stream.start()
     }
 
-    fun waitApoapsis(
+    suspend fun waitApoapsis(
         apoapsis: Double,
         vessel: SpaceCenter.Vessel,
-        krpc: KRPC,
         connection: Connection
-    ) {
-        val meanAltitude =
-            connection.getCall(vessel.orbit, "getApoapsisAltitude")
-        val expression = KRPC.Expression.greaterThanOrEqual(
-            connection,
-            KRPC.Expression.call(connection, meanAltitude),
-            KRPC.Expression.constantDouble(connection, apoapsis)
-        )
-        val event = krpc.addEvent(expression)
-        synchronized(event.condition) {
-            event.waitFor()
+    ) = suspendCoroutine<Unit> { cont ->
+        var tag = 0
+        val stream =
+            connection.addStream<Double>(vessel.orbit, "getApoapsisAltitude")
+        tag = stream.addCallback {
+            if (it > apoapsis) {
+                cont.resume(Unit)
+                stream.removeCallback(tag)
+            }
         }
+        stream.rate = 2F
+        stream.start()
     }
 
-    fun waitVelocity(
+    suspend fun waitVelocity(
         velocity: Double,
         vessel: SpaceCenter.Vessel,
-        krpc: KRPC,
         connection: Connection
-    ) {
+    ) = suspendCoroutine<Unit> { cont ->
         val ref = vessel.orbit.body.referenceFrame
-        val verticalSpeed =
-            connection.getCall(vessel.flight(ref), "getVerticalSpeed")
-        val expression = KRPC.Expression.greaterThanOrEqual(
-            connection,
-            KRPC.Expression.call(connection, verticalSpeed),
-            KRPC.Expression.constantDouble(connection, -velocity)
-        )
-        val event = krpc.addEvent(expression)
-        synchronized(event.condition) {
-            event.waitFor()
+        val stream =
+            connection.addStream<Double>(vessel.flight(ref), "getVerticalSpeed")
+        var tag = 0
+        tag = stream.addCallback {
+            if (-it > velocity) {
+                cont.resume(Unit)
+                stream.removeCallback(tag)
+            }
         }
+        stream.rate = 2F
+        stream.start()
     }
 //        fun waitDrag(
 //        drag: Double,

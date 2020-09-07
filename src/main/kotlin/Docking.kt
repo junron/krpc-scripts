@@ -11,8 +11,8 @@ fun main() {
         6666,
         6667
     )
-    val krpc = KRPC.newInstance(connection)
     val sc = SpaceCenter.newInstance(connection)
+    sc.save("krpc")
     val vessel = sc.activeVessel
     println("Vessel: ${vessel.name}")
     val ap = vessel.autoPilot
