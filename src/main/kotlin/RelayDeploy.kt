@@ -1,3 +1,4 @@
+import Launch.boosterManoeuvre
 import kotlinx.coroutines.delay
 import krpc.client.Connection
 import krpc.client.services.KRPC
