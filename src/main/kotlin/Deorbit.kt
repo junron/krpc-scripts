@@ -26,7 +26,7 @@ object Deorbit {
             engage()
             referenceFrame = vessel.orbit.body.referenceFrame
         }
-        val dv = Mechanics.visViva(
+        val dv = Mechanics.visVivaDv(
             vessel.orbit,
             vessel.orbit.apoapsis,
             vessel.orbit.body.equatorialRadius.toDouble() - 100_000

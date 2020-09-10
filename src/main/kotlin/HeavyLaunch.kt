@@ -7,10 +7,9 @@ import org.javatuples.Triplet
 import util.*
 
 object HeavyLaunch {
-    @JvmStatic
     suspend fun main(args: Array<String>) {
         val connection = Connection.newInstance(
-            "R2-Heavy Launch",
+            "Heavy Launch",
             "localhost",
             6666,
             6667
@@ -19,42 +18,49 @@ object HeavyLaunch {
         sc.save("krpc")
         val printer = TimedPrinter(sc)
         val vessel = sc.activeVessel
+        val craft = vessel.name
         printer.print("Vessel: ${vessel.name}")
         val ap = vessel.autoPilot
         val control = vessel.control
-        ap.apply {
-            engage()
-            targetPitchAndHeading(90F, 90F)
-        }
+
         control.throttle = 1F
         delay(1000)
         control.activateNextStage()
         printer.print("Launch")
+        control.sas = true
+        delay(3000)
+        ap.apply {
+            engage()
+            targetPitchAndHeading(90F, 90F)
+        }
         val targetAp = 100_000
         val ref = vessel.orbit.body.referenceFrame
+        var speedStreamTag = 0
+        var fuelStreamTag = 0
         val speedStream =
             connection.addStream<Double>(vessel.flight(ref), "getSpeed")
-        speedStream.addCallback { speed ->
-            if (speed in 100.0..550.0) {
+        speedStreamTag = speedStream.addCallback { speed ->
+            if (speed in 100.0..650.0) {
                 ap.targetPitchAndHeading((90F - speed / 10F).toFloat(), 90F)
             }
-            if (speed > 600)
-                speedStream.remove()
+            if (speed > 700)
+                speedStream.removeCallback(speedStreamTag)
         }
         speedStream.rate = 2F
+        val tank = vessel.parts.withTag("booster_tank").first()
         val fuelStream = connection.addStream<Float>(
-            vessel.resourcesInDecoupleStage(3, false),
+            vessel.resourcesInDecoupleStage(tank.decoupleStage, false),
             "amount",
             "LiquidFuel"
         )
-        fuelStream.addCallback {
+        fuelStreamTag = fuelStream.addCallback {
             runBlocking {
                 if (it < 10) {
                     control.throttle = 0F
                     delay(1000)
                     control.activateNextStage()
                     control.throttle = 1F
-                    fuelStream.remove()
+                    fuelStream.removeCallback(fuelStreamTag)
                     printer.print("Side booster separation")
                 }
             }
@@ -72,7 +78,7 @@ object HeavyLaunch {
         printer.print("MECO")
         delay(3000)
         control.activateNextStage()
-        val booster = sc.getVesselByName("R2-Heavy Probe")
+        val booster = sc.getVesselByName("$craft Probe")
             ?: return printer.print("No booster found")
 
         control.throttle = 0.4F
@@ -109,4 +115,8 @@ object HeavyLaunch {
         connection.close()
     }
 
+}
+
+suspend fun main() {
+    HeavyLaunch.main(emptyArray())
 }

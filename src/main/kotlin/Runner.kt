@@ -5,5 +5,6 @@ suspend fun main(args: Array<String>) {
         "heavy-launch" -> HeavyLaunch.main(args)
         "land" -> Land.main(args)
         "dock" -> Docking.main(args)
+        "sync" -> Synchronous.main(args)
     }
 }

@@ -21,11 +21,9 @@ object Launch {
             printer.print("Booster burn complete")
             // Point retrograde
             autoPilot.targetDirection = Triplet(0.0, -1.0, 0.0)
-            sc.warpTo(sc.ut + booster.orbit.timeToPeriapsis, 10000F, 1000F)
         }
     }
 
-    @JvmStatic
     suspend fun main(args: Array<String>) {
         val connection = Connection.newInstance(
             "Launch",
@@ -50,7 +48,7 @@ object Launch {
         delay(1000)
         control.activateNextStage()
         printer.print("Launch")
-        val targetAp = 150_000
+        val targetAp = 90_000
         val ref = vessel.orbit.body.referenceFrame
         while (true) {
             val flight = vessel.flight(ref)
@@ -111,3 +109,6 @@ object Launch {
     }
 }
 
+suspend fun main() {
+    Launch.main(emptyArray())
+}

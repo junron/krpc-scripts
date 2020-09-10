@@ -2,10 +2,7 @@ package util
 
 import krpc.client.services.SpaceCenter
 import krpc.client.services.SpaceCenter.Vessel
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
+import kotlin.math.*
 
 object Mechanics {
     fun circularize(vessel: Vessel): Double {
@@ -55,15 +52,27 @@ object Mechanics {
             (1 + orbit.eccentricity * cos(orbit.trueAnomaly))
     }
 
-    fun visViva(
+    fun visVivaDv(
         orbit: SpaceCenter.Orbit,
         originalHeight: Double,
         targetHeight: Double
     ): Double {
-        val atx = (originalHeight + targetHeight)/2
+        val atx = (originalHeight + targetHeight) / 2
         val mu = orbit.body.gravitationalParameter
         val vtx = sqrt(mu * (2.0 / originalHeight - 1.0 / atx))
-        val v1 = sqrt(mu/originalHeight)
+        val v1 = sqrt(mu * (2.0 / originalHeight - 1.0 / orbit.semiMajorAxis))
         return vtx - v1
     }
+
+    fun calculateSemiMajor(
+        period: Float,
+        body: SpaceCenter.CelestialBody
+    ): Double {
+        val tsquared = period * period
+        val acubed = tsquared / ((4 * PI * PI) / body.gravitationalParameter)
+        return acubed.pow(1.0 / 3.0)
+    }
+
+    fun calculateSynchronous(body: SpaceCenter.CelestialBody) =
+        calculateSemiMajor(body.rotationalPeriod, body)
 }
